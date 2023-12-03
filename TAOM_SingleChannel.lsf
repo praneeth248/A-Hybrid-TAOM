@@ -1,0 +1,109 @@
+closeall;
+clear;
+clc;
+
+
+
+
+switchtodesign;
+
+
+
+
+laser = "CWL_1";
+NRZ ="NRZ_1";
+PRBS = "PRBS_1";
+osa_drop_dBm = "OSA_1";
+osa_drop_W = "OSA_2";
+osa_through_dBm = "OSA_3";
+osa_through_W = "OSA_4";
+oosc_drop_dBm = "OOSC_1";
+oosc_drop_W = "OOSC_3";
+oosc_through_dBm = "OOSC_2";
+oosc_through_W = "OOSC_4";
+
+
+
+
+power_drop_dBm = matrix(16,16);
+power_drop_W = matrix(16,16);
+power_through_dBm = matrix(16,16);
+power_through_W = matrix(16,16);
+current_drop = matrix(16,16);
+current_time_drop = matrix(16,16);
+current_through = matrix(16,16);
+current_time_through = matrix(16,16);
+balanced_current = matrix(16,16);
+transmission_drop = matrix(16,16);
+transmission_through = matrix(16,16);
+voltage = matrix(16,16);
+voltage_mv = matrix(16,16);
+timestamp = matrix(16,16);
+
+
+capacitance = 1e-12;
+
+
+
+amplitude_analog = 2.7:((2.712-2.7)/15):2.712;
+
+
+time_analog = 100e-12:(50e-12/15):150e-12;
+
+
+
+for (i=1:16){
+    timestamp(i) = ((time_analog(i)/4)*2.5);   
+}
+
+
+
+
+for (i=1:16){
+    for (j=1:16){
+        #setnamed(PRBS,"codeword",bitseq{i});
+        setnamed(NRZ,"amplitude",amplitude_analog(i));
+        set("time window",time_analog(j));
+        set("bitrate",4/time_analog(j));
+        #set("number of samples",1000);
+        set("monitor data","save to memory");
+        run;
+        result_drop_dBm = getresult(osa_drop_dBm,"sum/signal");
+        power_drop_dBm(i,j) = max(result_drop_dBm.getattribute("power (dBm)"));
+        result_1_W = getresult(oosc_drop_W,"sum/signal");
+        result_drop_W = result_1_W.getattribute("power (W) at 192.755e+012 Hz");
+        t1 = result_1_W.time;
+        v1 = find(t1,timestamp(j));
+        power_drop_W(i,j) = result_drop_W(v1,1);
+        
+        transmission_drop(i,j) = (power_drop_W(i,j))/(0.001);        
+                
+        result_through_dBm = getresult(osa_through_dBm,"sum/signal");
+        power_through_dBm(i,j) = max(result_through_dBm.getattribute("power (dBm)"));
+        result_2_W = getresult(oosc_through_W,"sum/signal");
+        result_through_W = result_2_W.getattribute("power (W) at 192.755e+012 Hz");        
+        t2 = result_2_W.time;
+        v2 = find(t2,timestamp(j));
+        power_through_W(i,j) = result_through_W(v2,1);
+        
+        transmission_through(i,j) = (power_through_W(i,j))/(0.001);     
+        
+        current_drop(i,j) = 1*power_drop_W(i,j);    
+        #current_drop_time(i,j) = time_analog(j);
+        
+        current_through(i,j) = 1*power_through_W(i,j);
+        #current_through_time(i,j) = time_analog(j);
+        
+        balanced_current(i,j) = (current_through(i,j)-current_drop(i,j));
+
+        voltage(i,j) = ((1/capacitance)*((balanced_current(i,j)+balanced_current(i,j))*(time_analog(j))))*1e3;
+        
+
+        #savedata("15_15_16ps");
+        switchtodesign;
+}
+}
+
+
+
+
